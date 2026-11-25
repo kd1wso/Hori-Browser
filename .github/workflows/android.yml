@@ -35,11 +35,11 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK platform 37
-        run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+      # ubuntu-latest runners ship the Android SDK with cmdline-tools.
+      - name: Accept licenses and install SDK platform 37
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "build-tools;37.0.0"
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable

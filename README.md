@@ -1,7 +1,13 @@
 # Hori Browser
 
+[![Android CI](https://github.com/kd1wso/Hori-Browser/actions/workflows/android.yml/badge.svg)](https://github.com/kd1wso/Hori-Browser/actions/workflows/android.yml)
+
 Android-браузер: **GeckoView** как сменный веб-движок, **Rust** как ядро логики,
 **Kotlin/Compose** как тонкий Android-слой.
+
+Свежие APK собираются в GitHub Actions: вкладка **Actions** → последний запуск →
+**Artifacts** (`hori-browser-debug` / `hori-browser-release`).
+По тегу `v*` создаётся GitHub Release с APK.
 
 ## Архитектура
 
