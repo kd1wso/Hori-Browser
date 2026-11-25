@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["core"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+# NOTE: no panic="abort" — UniFFI catches panics at the FFI boundary and
+# converts them into foreign exceptions; abort would kill the whole app.

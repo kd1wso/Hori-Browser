@@ -1,0 +1,20 @@
+[package]
+name = "hori-core"
+version = "0.1.0"
+edition = "2021"
+license = "MPL-2.0"
+description = "Hori Browser core logic: navigation input, settings, storage. Engine-agnostic."
+
+[lib]
+name = "hori_core"
+crate-type = ["cdylib", "staticlib", "lib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[dependencies]
+uniffi = { version = "0.32.2", features = ["cli"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+thiserror = "2"
+url = "2"

@@ -1,0 +1,26 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Android / Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+
+# Generated artifacts (rebuild with tools/build-core.ps1)
+android/app/src/main/jniLibs/
+android/app/src/main/kotlin/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+Thumbs.db
+.DS_Store
