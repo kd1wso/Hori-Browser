@@ -5,7 +5,9 @@ plugins {
 
 android {
     namespace = "dev.hori.browser"
+    // Minor SDK release: Android 17 = API 37.0 (package platforms;android-37.0).
     compileSdk = 37
+    compileSdkMinor = 0
 
     defaultConfig {
         applicationId = "dev.hori.browser"
