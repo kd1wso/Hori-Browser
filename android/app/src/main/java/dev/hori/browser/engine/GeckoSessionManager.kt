@@ -33,6 +33,12 @@ class GeckoSessionManager(context: Context) {
 
     private val runtime = GeckoEngine.runtime(context)
 
+    /** Activity for orientation control; set from MainActivity after attach. */
+    @Volatile
+    var activity: android.app.Activity? = null
+
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
     private data class Tab(
         val session: GeckoSession,
         val state: MutableStateFlow<TabState>,
@@ -78,6 +84,10 @@ class GeckoSessionManager(context: Context) {
 
     fun selectTab(id: Long) {
         if (tabs.containsKey(id) && _activeId.value != id) {
+            // Leaving a fullscreen tab must not leave the screen locked.
+            if (tabs[_activeId.value]?.state?.value?.fullScreen == true) {
+                mainHandler.post { OrientationLockController.restore() }
+            }
             _activeId.value = id
             _activeRevision.value++
         }
@@ -86,7 +96,11 @@ class GeckoSessionManager(context: Context) {
     fun closeTab(id: Long) {
         val tab = tabs.remove(id) ?: return
         val wasActive = _activeId.value == id
+        val wasFullScreen = tab.state.value.fullScreen
         tab.session.close()
+        if (wasFullScreen) {
+            mainHandler.post { OrientationLockController.restore() }
+        }
         if (wasActive) {
             _activeId.value = tabs.keys.lastOrNull() ?: 0L
             _activeRevision.value++
@@ -152,6 +166,17 @@ class GeckoSessionManager(context: Context) {
 
             override fun onFullScreen(session: GeckoSession, fullScreen: Boolean) {
                 update(id) { it.copy(fullScreen = fullScreen) }
+                if (fullScreen) {
+                    // Base state in fullscreen: let the device rotate freely
+                    // (a player that wants landscape locks it explicitly and
+                    // lands in onOrientationLock). Any previous page lock was
+                    // already released by onOrientationUnlock.
+                    mainHandler.post {
+                        activity?.let { OrientationLockController.beginFullScreen(it) }
+                    }
+                } else {
+                    mainHandler.post { OrientationLockController.restore() }
+                }
             }
         }
 

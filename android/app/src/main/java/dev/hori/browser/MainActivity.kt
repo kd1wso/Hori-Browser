@@ -5,14 +5,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hori.browser.browser.BrowserScreen
 import dev.hori.browser.browser.BrowserViewModel
 import dev.hori.browser.browser.HoriTheme
+import dev.hori.browser.engine.OrientationLockController
 
 class MainActivity : ComponentActivity() {
 
-    private var viewModel: BrowserViewModel? = null
+    private lateinit var vm: BrowserViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,9 +24,17 @@ class MainActivity : ComponentActivity() {
         val app = application as BrowserApp
         val initialUrl = intent?.data?.toString()
 
+        vm = ViewModelProvider(
+            this,
+            viewModelFactory { initializer { BrowserViewModel(app, app.core) } },
+        )[BrowserViewModel::class.java]
+
+        // Web content orientation locks (YouTube fullscreen) need the host
+        // Activity; hand it to both the lock controller and the session manager.
+        OrientationLockController.attach(this)
+        vm.sessions.activity = this
+
         setContent {
-            val vm: BrowserViewModel = viewModel(factory = BrowserViewModel.factory(app.core))
-            viewModel = vm
             HoriTheme {
                 BrowserScreen(vm)
             }
@@ -36,6 +47,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.data?.toString()?.let { viewModel?.openUrl(it) }
+        intent.data?.toString()?.let { vm.openUrl(it) }
     }
 }

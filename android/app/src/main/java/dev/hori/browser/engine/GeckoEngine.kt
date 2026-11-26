@@ -20,6 +20,10 @@ object GeckoEngine {
                 GeckoRuntimeSettings.Builder()
                     .javaScriptEnabled(true)
                     .build()
-            ).also { runtime = it }
+            ).also {
+                runtime = it
+                // Web content's screen.orientation.lock() reaches the app here.
+                it.orientationController.setDelegate(OrientationLockController)
+            }
         }
 }
