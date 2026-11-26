@@ -101,21 +101,21 @@ fun SettingsScreen(
                         label = "Системная",
                         icon = Icons.Filled.SettingsBrightness,
                         selected = vm.themeMode == HoriCore.ThemeMode.SYSTEM,
-                        onClick = { vm.setThemeMode(HoriCore.ThemeMode.SYSTEM) },
+                        onClick = { vm.chooseTheme(HoriCore.ThemeMode.SYSTEM) },
                         modifier = Modifier.weight(1f),
                     )
                     ThemeChip(
                         label = "Светлая",
                         icon = Icons.Filled.LightMode,
                         selected = vm.themeMode == HoriCore.ThemeMode.LIGHT,
-                        onClick = { vm.setThemeMode(HoriCore.ThemeMode.LIGHT) },
+                        onClick = { vm.chooseTheme(HoriCore.ThemeMode.LIGHT) },
                         modifier = Modifier.weight(1f),
                     )
                     ThemeChip(
                         label = "Тёмная",
                         icon = Icons.Filled.DarkMode,
                         selected = vm.themeMode == HoriCore.ThemeMode.DARK,
-                        onClick = { vm.setThemeMode(HoriCore.ThemeMode.DARK) },
+                        onClick = { vm.chooseTheme(HoriCore.ThemeMode.DARK) },
                         modifier = Modifier.weight(1f),
                     )
                 }

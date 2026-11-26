@@ -242,7 +242,7 @@ class BrowserViewModel(
         }
     }
 
-    fun setThemeMode(mode: HoriCore.ThemeMode) {
+    fun chooseTheme(mode: HoriCore.ThemeMode) {
         themeMode = mode
         runCatching { core.setThemeMode(mode) }
             .onFailure { settingsMessage = "Could not save theme: ${it.message}" }
