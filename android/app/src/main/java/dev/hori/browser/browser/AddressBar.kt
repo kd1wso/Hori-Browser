@@ -47,6 +47,7 @@ fun AddressBar(
     onCancelEditing: () -> Unit,
     onSubmit: (String) -> Unit,
     onEditChange: (String) -> Unit,
+    onClearEditing: () -> Unit,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -92,8 +93,12 @@ fun AddressBar(
                 ),
                 keyboardActions = KeyboardActions(onGo = { onSubmit(editing) }),
                 trailingIcon = {
-                    IconButton(onClick = onCancelEditing) {
-                        Icon(Icons.Filled.Close, contentDescription = "Cancel")
+                    // Cross = clear the text, not close the editor.
+                    // Kept visible only while there is something to clear.
+                    if (editing.isNotEmpty()) {
+                        IconButton(onClick = onClearEditing) {
+                            Icon(Icons.Filled.Close, contentDescription = "Clear")
+                        }
                     }
                 },
                 colors = TextFieldDefaults.colors(

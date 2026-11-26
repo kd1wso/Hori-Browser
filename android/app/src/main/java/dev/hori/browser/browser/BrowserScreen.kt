@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.activity.compose.BackHandler
 import dev.hori.browser.engine.TabState
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.mozilla.geckoview.GeckoView
@@ -35,25 +36,44 @@ fun BrowserScreen(vm: BrowserViewModel) {
     val fallbackFlow = remember { MutableStateFlow(TabState(id = 0)) }
     val active by remember(activeStateFlow) { activeStateFlow ?: fallbackFlow }.collectAsState()
 
+    // While web content is fullscreen (e.g. a YouTube player), hide the
+    // Android system bars too. DisposableEffect restores them on exit.
+    FullScreenSystemBarsEffect(active.fullScreen)
+
+    // System Back first leaves web fullscreen (matching major browsers),
+    // before the normal in-page history navigation kicks in.
+    BackHandler(enabled = active.fullScreen) {
+        vm.sessions.exitFullScreen()
+    }
+
     Surface(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                // No safe-area padding in fullscreen: the video must reach
+                // every physical edge of the screen.
+                .then(if (active.fullScreen) Modifier else Modifier.safeDrawingPadding()),
+        ) {
 
-            AddressBar(
-                url = active.url,
-                title = active.title,
-                loading = active.loading,
-                editing = vm.addressEditing,
-                onStartEditing = vm::startEditingAddress,
-                onCancelEditing = vm::cancelEditingAddress,
-                onSubmit = vm::submitAddress,
-                onEditChange = { vm.addressEditing = it },
-            )
-
-            if (active.loading) {
-                LinearProgressIndicator(
-                    progress = { active.progress / 100f },
-                    modifier = Modifier.fillMaxWidth().height(2.dp),
+            if (!active.fullScreen) {
+                AddressBar(
+                    url = active.url,
+                    title = active.title,
+                    loading = active.loading,
+                    editing = vm.addressEditing,
+                    onStartEditing = vm::startEditingAddress,
+                    onCancelEditing = vm::cancelEditingAddress,
+                    onSubmit = vm::submitAddress,
+                    onEditChange = { vm.addressEditing = it },
+                    onClearEditing = vm::clearEditingAddress,
                 )
+
+                if (active.loading) {
+                    LinearProgressIndicator(
+                        progress = { active.progress / 100f },
+                        modifier = Modifier.fillMaxWidth().height(2.dp),
+                    )
+                }
             }
 
             Box(modifier = Modifier.weight(1f)) {
@@ -79,18 +99,20 @@ fun BrowserScreen(vm: BrowserViewModel) {
                 )
             }
 
-            BottomToolbar(
-                canGoBack = active.canGoBack,
-                canGoForward = active.canGoForward,
-                tabCount = tabs.size,
-                onBack = vm.sessions::goBack,
-                onForward = vm.sessions::goForward,
-                onReload = vm.sessions::reload,
-                onTabs = vm::toggleTabs,
-            )
+            if (!active.fullScreen) {
+                BottomToolbar(
+                    canGoBack = active.canGoBack,
+                    canGoForward = active.canGoForward,
+                    tabCount = tabs.size,
+                    onBack = vm.sessions::goBack,
+                    onForward = vm.sessions::goForward,
+                    onReload = vm.sessions::reload,
+                    onTabs = vm::toggleTabs,
+                )
+            }
         }
 
-        if (vm.showTabs) {
+        if (!active.fullScreen && vm.showTabs) {
             TabsSheet(
                 tabs = tabs,
                 activeId = activeId,

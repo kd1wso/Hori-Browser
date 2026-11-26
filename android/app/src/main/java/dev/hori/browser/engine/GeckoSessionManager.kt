@@ -21,6 +21,8 @@ data class TabState(
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false,
     val error: String? = null,
+    /** Web content (e.g. a YouTube player) is in fullscreen mode. */
+    val fullScreen: Boolean = false,
 )
 
 /**
@@ -111,6 +113,11 @@ class GeckoSessionManager(context: Context) {
         activeSession()?.goForward(false)
     }
 
+    /** Asks the active page (e.g. a YouTube player) to leave DOM fullscreen. */
+    fun exitFullScreen() {
+        activeSession()?.exitFullScreen()
+    }
+
     private fun publishList() {
         _tabList.value = tabs.values.map { it.state.value }
     }
@@ -141,6 +148,10 @@ class GeckoSessionManager(context: Context) {
         tab.session.contentDelegate = object : GeckoSession.ContentDelegate {
             override fun onTitleChange(session: GeckoSession, title: String?) {
                 update(id) { it.copy(title = title ?: "") }
+            }
+
+            override fun onFullScreen(session: GeckoSession, fullScreen: Boolean) {
+                update(id) { it.copy(fullScreen = fullScreen) }
             }
         }
 

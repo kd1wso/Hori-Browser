@@ -59,6 +59,11 @@ class BrowserViewModel(
         addressEditing = null
     }
 
+    /** Clears the address field but keeps editing mode and focus. */
+    fun clearEditingAddress() {
+        addressEditing = ""
+    }
+
     fun newTab() {
         sessions.newTab(core.homeUrl())
         showTabs = false
