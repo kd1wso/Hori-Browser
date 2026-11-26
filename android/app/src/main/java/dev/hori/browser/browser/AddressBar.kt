@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,12 +58,14 @@ fun AddressBar(
     title: String,
     loading: Boolean,
     editing: String?,
+    isBookmarked: Boolean,
     onStartEditing: (String) -> Unit,
     onCancelEditing: () -> Unit,
     onSubmit: (String) -> Unit,
     onEditChange: (String) -> Unit,
     onClearEditing: () -> Unit,
     onHome: () -> Unit,
+    onToggleBookmark: () -> Unit,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -107,6 +111,28 @@ fun AddressBar(
                     contentDescription = "Home",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            // Star toggles a bookmark for the current page (only for web URLs).
+            if (editing == null && url.startsWith("http")) {
+                IconButton(onClick = onToggleBookmark) {
+                    Icon(
+                        imageVector = if (isBookmarked) {
+                            Icons.Filled.Star
+                        } else {
+                            Icons.Outlined.StarBorder
+                        },
+                        contentDescription = if (isBookmarked) {
+                            "Remove bookmark"
+                        } else {
+                            "Add bookmark"
+                        },
+                        tint = if (isBookmarked) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
             }
         }
     }

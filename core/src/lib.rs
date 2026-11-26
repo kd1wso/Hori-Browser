@@ -53,6 +53,17 @@ pub struct HistoryEntry {
     pub visited_at: i64,
 }
 
+/// A saved bookmark. `id` is its storage primary key; `created_at` is Unix
+/// epoch milliseconds; `position` orders the bookmark list.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct Bookmark {
+    pub id: i64,
+    pub url: String,
+    pub title: String,
+    pub created_at: i64,
+    pub position: i64,
+}
+
 /// Entry point of Hori Core. Owns the SQLite database under `data_dir`.
 #[derive(uniffi::Object)]
 pub struct BrowserCore {
@@ -161,6 +172,40 @@ impl BrowserCore {
         storage::clear_history(&db)?;
         storage::set_setting(&db, "history_cleared_at", &now_millis().to_string())?;
         Ok(())
+    }
+
+    // --- Bookmarks -------------------------------------------------------
+
+    /// Adds (or re-titles) a bookmark and returns its row id.
+    pub fn add_bookmark(&self, url: String, title: String) -> Result<i64, HoriError> {
+        let db = self.db.lock().unwrap();
+        storage::add_bookmark(&db, &url, &title, now_millis()).map_err(Into::into)
+    }
+
+    pub fn remove_bookmark(&self, id: i64) -> Result<(), HoriError> {
+        let db = self.db.lock().unwrap();
+        storage::remove_bookmark(&db, id).map_err(Into::into)
+    }
+
+    pub fn remove_bookmark_by_url(&self, url: String) -> Result<(), HoriError> {
+        let db = self.db.lock().unwrap();
+        storage::remove_bookmark_by_url(&db, &url).map_err(Into::into)
+    }
+
+    pub fn is_bookmarked(&self, url: String) -> Result<bool, HoriError> {
+        let db = self.db.lock().unwrap();
+        storage::is_bookmarked(&db, &url).map_err(Into::into)
+    }
+
+    /// All bookmarks in display order.
+    pub fn bookmarks(&self) -> Result<Vec<Bookmark>, HoriError> {
+        let db = self.db.lock().unwrap();
+        storage::all_bookmarks(&db).map_err(Into::into)
+    }
+
+    pub fn bookmark_count(&self) -> Result<u32, HoriError> {
+        let db = self.db.lock().unwrap();
+        storage::bookmark_count(&db).map_err(Into::into)
     }
 }
 

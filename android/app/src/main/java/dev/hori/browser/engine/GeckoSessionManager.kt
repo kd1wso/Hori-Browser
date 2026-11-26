@@ -7,6 +7,7 @@ import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.WebRequestError
+import org.mozilla.geckoview.WebResponse
 
 /**
  * Tab state visible to the UI. Sessions themselves are Android objects and
@@ -33,10 +34,13 @@ data class TabState(
  *
  * @param onVisit invoked on the UI thread after a page finishes loading, so the
  *   host app can persist history through the Rust core.
+ * @param onExternalResponse invoked when the page hands a response to the
+ *   system (downloads); the host app streams it through [DownloadManager].
  */
 class GeckoSessionManager(
     context: Context,
     private val onVisit: (url: String, title: String) -> Unit = { _, _ -> },
+    private val onExternalResponse: (WebResponse) -> Unit = {},
 ) {
 
     private val runtime = GeckoEngine.runtime(context)
@@ -220,6 +224,11 @@ class GeckoSessionManager(
                 } else {
                     mainHandler.post { OrientationLockController.restore() }
                 }
+            }
+
+            override fun onExternalResponse(session: GeckoSession, response: WebResponse) {
+                // Downloadable content (non-page responses) lands here.
+                onExternalResponse(response)
             }
         }
 

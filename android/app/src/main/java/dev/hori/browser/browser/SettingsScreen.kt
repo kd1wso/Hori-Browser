@@ -24,11 +24,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SettingsBrightness
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -58,6 +60,8 @@ import dev.hori.browser.bridge.HoriCore
 fun SettingsScreen(
     vm: BrowserViewModel,
     onOpenHistory: () -> Unit,
+    onOpenBookmarks: () -> Unit,
+    onOpenDownloads: () -> Unit,
     onOpenAbout: () -> Unit,
 ) {
     BackHandler(enabled = true) { vm.closeSettings() }
@@ -183,17 +187,32 @@ fun SettingsScreen(
                 ) { Text("Сохранить стартовую страницу") }
             }
 
-            // --- Privacy -------------------------------------------------
-            SettingsCard(
-                title = "Приватность и данные",
-                description = "История хранится только на этом устройстве.",
-            ) {
-                NavigationRow(
-                    icon = Icons.Filled.Info,
-                    title = "История и недавние сайты",
-                    subtitle = "Записей: ${vm.historyCount}",
-                    onClick = onOpenHistory,
-                )
+            // --- Library -------------------------------------------------
+            SettingsCard(title = "Библиотека") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    NavigationRow(
+                        icon = Icons.Filled.Star,
+                        title = "Закладки",
+                        subtitle = "Сохранено: ${vm.bookmarkCount}",
+                        onClick = onOpenBookmarks,
+                    )
+                    NavigationRow(
+                        icon = Icons.Filled.Download,
+                        title = "Загрузки",
+                        subtitle = if (vm.downloads.isEmpty()) {
+                            "Нет загрузок"
+                        } else {
+                            "В списке: ${vm.downloads.size}"
+                        },
+                        onClick = onOpenDownloads,
+                    )
+                    NavigationRow(
+                        icon = Icons.Filled.Info,
+                        title = "История и недавние сайты",
+                        subtitle = "Записей: ${vm.historyCount}",
+                        onClick = onOpenHistory,
+                    )
+                }
             }
 
             // --- About ---------------------------------------------------

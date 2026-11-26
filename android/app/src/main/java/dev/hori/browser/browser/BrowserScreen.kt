@@ -12,6 +12,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -35,6 +36,8 @@ fun BrowserScreen(vm: BrowserViewModel) {
             vm.showSettings -> SettingsScreen(
                 vm = vm,
                 onOpenHistory = vm::openHistory,
+                onOpenBookmarks = vm::openBookmarks,
+                onOpenDownloads = vm::openDownloads,
                 onOpenAbout = vm::openAbout,
             )
             vm.showHistory -> HistoryScreen(
@@ -45,6 +48,23 @@ fun BrowserScreen(vm: BrowserViewModel) {
                 },
                 onClearAll = vm::clearHistory,
                 onBack = vm::closeHistory,
+            )
+            vm.showBookmarks -> BookmarksScreen(
+                bookmarks = vm.bookmarks,
+                onOpen = { url ->
+                    vm.closeBookmarks()
+                    vm.openUrl(url)
+                },
+                onRemove = vm::removeBookmark,
+                onBack = vm::closeBookmarks,
+            )
+            vm.showDownloads -> DownloadsScreen(
+                downloads = vm.downloads.collectAsState().value,
+                onOpen = vm::openDownload,
+                onCancel = vm::cancelDownload,
+                onRemove = vm::removeDownload,
+                onClearFinished = vm::clearFinishedDownloads,
+                onBack = vm::closeDownloads,
             )
             else -> BrowserContent(vm)
         }
@@ -87,13 +107,18 @@ private fun BrowserContent(vm: BrowserViewModel) {
                     title = active.title,
                     loading = active.loading,
                     editing = vm.addressEditing,
+                    isBookmarked = vm.isCurrentBookmarked,
                     onStartEditing = vm::startEditingAddress,
                     onCancelEditing = vm::cancelEditingAddress,
                     onSubmit = vm::submitAddress,
                     onEditChange = { vm.addressEditing = it },
                     onClearEditing = vm::clearEditingAddress,
                     onHome = vm::goHome,
+                    onToggleBookmark = { vm.toggleBookmarkCurrent(active.title) },
                 )
+
+                // Keep the bookmark star in sync with the active page.
+                LaunchedEffect(active.url) { vm.onActiveUrlChanged(active.url) }
 
                 // Thinner, primary-colored page-load bar.
                 if (active.loading) {

@@ -9,6 +9,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import dev.hori.browser.bridge.HoriCore
+import dev.hori.browser.engine.DownloadItem
+import dev.hori.browser.engine.DownloadManager
 import dev.hori.browser.engine.GeckoSessionManager
 import dev.hori.browser.engine.TabState
 import kotlinx.coroutines.flow.StateFlow
@@ -28,10 +30,22 @@ class BrowserViewModel(
     /** A quick-link tile on the start page. */
     data class QuickLink(val url: String, val label: String, val glyph: String)
 
-    val sessions = GeckoSessionManager(application) { url, title ->
-        core.recordVisit(url, title)
-        refreshHomeData()
-    }
+    /** A saved bookmark for the UI. */
+    data class Bookmark(val id: Long, val url: String, val title: String)
+
+    val downloadManager = DownloadManager(application)
+    val downloads: StateFlow<List<DownloadItem>> = downloadManager.downloads
+
+    val sessions = GeckoSessionManager(
+        application,
+        onVisit = { url, title ->
+            core.recordVisit(url, title)
+            refreshHomeData()
+        },
+        onExternalResponse = { response ->
+            downloadManager.handleExternalResponse(response)
+        },
+    )
 
     /** Text currently being edited in the address bar (null = not editing). */
     var addressEditing by mutableStateOf<String?>(null)
@@ -46,6 +60,12 @@ class BrowserViewModel(
         private set
 
     var showHistory by mutableStateOf(false)
+        private set
+
+    var showBookmarks by mutableStateOf(false)
+        private set
+
+    var showDownloads by mutableStateOf(false)
         private set
 
     // --- Settings state ---------------------------------------------------
@@ -63,6 +83,22 @@ class BrowserViewModel(
     /** History entry count, refreshed when settings opens or data changes. */
     var historyCount by mutableStateOf(0)
         private set
+
+    /** Bookmark count for badges/settings. */
+    var bookmarkCount by mutableStateOf(0)
+        private set
+
+    // --- Bookmarks state --------------------------------------------------
+
+    var bookmarks by mutableStateOf<List<Bookmark>>(emptyList())
+        private set
+
+    /** Whether the *current* page is bookmarked (for the star toggle). */
+    var isCurrentBookmarked by mutableStateOf(false)
+        private set
+
+    /** URL the star reflects; kept so we can refresh on navigation. */
+    private var currentUrl: String = ""
 
     // --- Start page state -------------------------------------------------
 
@@ -157,7 +193,61 @@ class BrowserViewModel(
         historyEntries = all
         recentSites = all.take(12)
         historyCount = core.historyCount()
+        bookmarks = core.bookmarks().map { Bookmark(it.id, it.url, it.title) }
+        bookmarkCount = bookmarks.size
     }
+
+    /** Called by the UI when the active tab's URL changes. */
+    fun onActiveUrlChanged(url: String) {
+        if (url == currentUrl) return
+        currentUrl = url
+        isCurrentBookmarked = url.startsWith("http") && core.isBookmarked(url)
+    }
+
+    // --- Bookmarks --------------------------------------------------------
+
+    /** Adds or removes the current page from bookmarks. */
+    fun toggleBookmarkCurrent(title: String) {
+        val url = currentUrl
+        if (!url.startsWith("http")) return
+        if (core.isBookmarked(url)) {
+            core.removeBookmarkByUrl(url)
+        } else {
+            core.addBookmark(url, title)
+        }
+        refreshHomeData()
+        isCurrentBookmarked = core.isBookmarked(url)
+    }
+
+    fun openBookmarks() {
+        refreshHomeData()
+        showBookmarks = true
+    }
+
+    fun closeBookmarks() {
+        showBookmarks = false
+    }
+
+    fun removeBookmark(id: Long) {
+        core.removeBookmark(id)
+        refreshHomeData()
+        isCurrentBookmarked = currentUrl.startsWith("http") && core.isBookmarked(currentUrl)
+    }
+
+    // --- Downloads --------------------------------------------------------
+
+    fun openDownloads() {
+        showDownloads = true
+    }
+
+    fun closeDownloads() {
+        showDownloads = false
+    }
+
+    fun cancelDownload(id: Long) = downloadManager.cancel(id)
+    fun removeDownload(id: Long) = downloadManager.remove(id)
+    fun clearFinishedDownloads() = downloadManager.clearFinished()
+    fun openDownload(id: Long) = downloadManager.open(id)
 
     // --- Settings ---------------------------------------------------------
 

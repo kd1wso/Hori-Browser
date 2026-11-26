@@ -96,6 +96,39 @@ class HoriCore private constructor(private val core: BrowserCore) {
         core.clearBrowsingData()
     }
 
+    // --- Bookmarks -------------------------------------------------------
+
+    data class BookmarkItem(
+        val id: Long,
+        val url: String,
+        val title: String,
+        val createdAt: Long,
+    )
+
+    fun bookmarks(): List<BookmarkItem> =
+        runCatching {
+            core.bookmarks().map {
+                BookmarkItem(it.id, it.url, it.title, it.createdAt)
+            }
+        }.getOrElse { emptyList() }
+
+    fun isBookmarked(url: String): Boolean =
+        runCatching { core.isBookmarked(url) }.getOrDefault(false)
+
+    /** Adds a bookmark and returns its id (or null on failure). */
+    fun addBookmark(url: String, title: String): Long? =
+        runCatching { core.addBookmark(url, title) }.getOrNull()
+
+    fun removeBookmark(id: Long) {
+        runCatching { core.removeBookmark(id) }
+    }
+
+    fun removeBookmarkByUrl(url: String) {
+        runCatching { core.removeBookmarkByUrl(url) }
+    }
+
+    fun bookmarkCount(): Int = runCatching { core.bookmarkCount().toInt() }.getOrDefault(0)
+
     fun version(): String = runCatching { core.version() }.getOrDefault("0.1.0")
 
     companion object {
