@@ -5,6 +5,7 @@ members = ["core"]
 [profile.release]
 lto = true
 codegen-units = 1
-strip = true
-# NOTE: no panic="abort" — UniFFI catches panics at the FFI boundary and
-# converts them into foreign exceptions; abort would kill the whole app.
+# NOTE: do NOT set strip = true — it removes the UniFFI metadata symbols
+# that library-mode bindgen reads from the host library.
+# The Android .so files are stripped later by AGP (stripDebugDebugSymbols).
+# Also no panic="abort": UniFFI converts panics into foreign exceptions.
