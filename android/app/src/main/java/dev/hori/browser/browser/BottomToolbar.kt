@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tab
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -33,6 +34,7 @@ fun BottomToolbar(
     onReload: () -> Unit,
     onStop: () -> Unit,
     onTabs: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
@@ -77,6 +79,13 @@ fun BottomToolbar(
                         modifier = Modifier.size(22.dp),
                     )
                 }
+            }
+            IconButton(onClick = onSettings) {
+                Icon(
+                    Icons.Filled.Settings,
+                    contentDescription = "Settings",
+                    modifier = Modifier.size(22.dp),
+                )
             }
         }
     }

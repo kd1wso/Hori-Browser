@@ -116,6 +116,7 @@ fun BrowserScreen(vm: BrowserViewModel) {
                     onReload = vm.sessions::reload,
                     onStop = vm.sessions::stop,
                     onTabs = vm::toggleTabs,
+                    onSettings = vm::openSettings,
                 )
             }
         }
@@ -129,6 +130,10 @@ fun BrowserScreen(vm: BrowserViewModel) {
                 onNew = vm::newTab,
                 onDismiss = vm::toggleTabs,
             )
+        }
+
+        if (vm.showSettings) {
+            SettingsScreen(vm)
         }
     }
 }
