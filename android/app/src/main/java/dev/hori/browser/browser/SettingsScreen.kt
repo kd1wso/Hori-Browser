@@ -1,7 +1,10 @@
 package dev.hori.browser.browser
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,18 +21,20 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SettingsBrightness
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -39,27 +44,33 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import dev.hori.browser.bridge.HoriCore
 
 /**
- * Settings screen. Currently covers the start page and search engine, both
- * persisted through the Rust core. Reached from the overflow menu.
+ * Settings: appearance (theme), search engine, start page, privacy/history,
+ * and an entry point to the About screen.
  */
 @Composable
-fun SettingsScreen(vm: BrowserViewModel) {
+fun SettingsScreen(
+    vm: BrowserViewModel,
+    onOpenHistory: () -> Unit,
+    onOpenAbout: () -> Unit,
+) {
     BackHandler(enabled = true) { vm.closeSettings() }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text("Настройки") },
                 navigationIcon = {
                     IconButton(onClick = vm::closeSettings) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = "Назад",
                         )
                     }
                 },
@@ -77,42 +88,122 @@ fun SettingsScreen(vm: BrowserViewModel) {
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            SettingsSection(
-                title = "Start page",
-                description = "The page Hori opens on launch and when you tap Home.",
-            ) {
-                SettingField(
-                    value = vm.homeUrlField,
-                    onChange = vm::onHomeUrlFieldChange,
-                    label = "Home URL",
-                    icon = Icons.Filled.Language,
-                    keyboardType = KeyboardType.Uri,
-                    onSubmit = { vm.saveHomeUrl() },
+            // --- Appearance ----------------------------------------------
+            SettingsCard(title = "Оформление") {
+                Text(
+                    "Тема приложения",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = { vm.saveHomeUrl() },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Save start page") }
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ThemeChip(
+                        label = "Системная",
+                        icon = Icons.Filled.SettingsBrightness,
+                        selected = vm.themeMode == HoriCore.ThemeMode.SYSTEM,
+                        onClick = { vm.setThemeMode(HoriCore.ThemeMode.SYSTEM) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    ThemeChip(
+                        label = "Светлая",
+                        icon = Icons.Filled.LightMode,
+                        selected = vm.themeMode == HoriCore.ThemeMode.LIGHT,
+                        onClick = { vm.setThemeMode(HoriCore.ThemeMode.LIGHT) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    ThemeChip(
+                        label = "Тёмная",
+                        icon = Icons.Filled.DarkMode,
+                        selected = vm.themeMode == HoriCore.ThemeMode.DARK,
+                        onClick = { vm.setThemeMode(HoriCore.ThemeMode.DARK) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
 
-            SettingsSection(
-                title = "Search engine",
-                description = "Used when address-bar text isn't a URL. Put %s where the query goes.",
+            // --- Search engine -------------------------------------------
+            SettingsCard(
+                title = "Поисковая система",
+                description = "Выберите движок по умолчанию для поиска из адресной строки.",
             ) {
-                SettingField(
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    vm.searchEngines.forEach { engine ->
+                        EngineRow(
+                            engine = engine,
+                            selected = vm.searchEngineField == engine.urlTemplate,
+                            onClick = { vm.selectSearchEngine(engine) },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
                     value = vm.searchEngineField,
-                    onChange = vm::onSearchEngineFieldChange,
-                    label = "Search URL template",
-                    icon = Icons.Filled.Search,
-                    keyboardType = KeyboardType.Uri,
-                    onSubmit = { vm.saveSearchEngine() },
+                    onValueChange = vm::onSearchEngineFieldChange,
+                    label = { Text("Свой шаблон (URL с %s)") },
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { vm.saveSearchEngine() }),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
                 Button(
                     onClick = { vm.saveSearchEngine() },
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Save search engine") }
+                ) { Text("Сохранить поисковую систему") }
+            }
+
+            // --- Start page ----------------------------------------------
+            SettingsCard(
+                title = "Стартовая страница",
+                description = "Что открывается при запуске и по кнопке «Домой».",
+            ) {
+                OutlinedTextField(
+                    value = vm.homeUrlField,
+                    onValueChange = vm::onHomeUrlFieldChange,
+                    label = { Text("Адрес") },
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Filled.Language, contentDescription = null) },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { vm.saveHomeUrl() }),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = { vm.saveHomeUrl() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Сохранить стартовую страницу") }
+            }
+
+            // --- Privacy -------------------------------------------------
+            SettingsCard(
+                title = "Приватность и данные",
+                description = "История хранится только на этом устройстве.",
+            ) {
+                NavigationRow(
+                    icon = Icons.Filled.Info,
+                    title = "История и недавние сайты",
+                    subtitle = "Записей: ${vm.historyCount}",
+                    onClick = onOpenHistory,
+                )
+            }
+
+            // --- About ---------------------------------------------------
+            SettingsCard(title = "О приложении") {
+                NavigationRow(
+                    icon = Icons.Filled.Info,
+                    title = "О браузере Hori",
+                    subtitle = "Версия, движок, ядро",
+                    onClick = onOpenAbout,
+                )
             }
 
             vm.settingsMessage?.let { msg ->
@@ -121,50 +212,24 @@ fun SettingsScreen(vm: BrowserViewModel) {
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(12.dp),
-                    ) {
-                        Icon(
-                            Icons.Filled.Info,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = msg,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                    }
+                    Text(
+                        text = msg,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(14.dp),
+                    )
                 }
             }
 
-            OutlinedButton(
-                onClick = vm::resetSettingsToDefaults,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Filled.Restore, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Reset to defaults")
-            }
-
-            HorizontalDivider()
-            Text(
-                text = "Hori Browser 0.1 — Rust core + GeckoView",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             Spacer(Modifier.height(8.dp))
         }
     }
 }
 
 @Composable
-private fun SettingsSection(
+private fun SettingsCard(
     title: String,
-    description: String,
+    description: String? = null,
     content: @Composable () -> Unit,
 ) {
     Card(
@@ -176,12 +241,14 @@ private fun SettingsSection(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(4.dp))
-            Text(
-                description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (description != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(12.dp))
             content()
         }
@@ -189,26 +256,123 @@ private fun SettingsSection(
 }
 
 @Composable
-private fun SettingField(
-    value: String,
-    onChange: (String) -> Unit,
+private fun ThemeChip(
     label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    keyboardType: KeyboardType,
-    onSubmit: () -> Unit,
+    icon: ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        leadingIcon = { Icon(icon, contentDescription = null) },
-        keyboardOptions = KeyboardOptions(
-            keyboardType = keyboardType,
-            imeAction = ImeAction.Done,
-        ),
-        keyboardActions = KeyboardActions(onDone = { onSubmit() }),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth(),
-    )
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        },
+        modifier = modifier.clickable(onClick = onClick),
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(vertical = 12.dp),
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (selected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun EngineRow(
+    engine: HoriCore.Engine,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(22.dp)
+                .background(
+                    if (selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerHigh
+                    },
+                    RoundedCornerShape(6.dp),
+                ),
+        ) {
+            if (selected) {
+                Icon(
+                    Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(15.dp),
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(engine.name, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun NavigationRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }

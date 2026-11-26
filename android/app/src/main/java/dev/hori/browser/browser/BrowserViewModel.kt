@@ -22,7 +22,16 @@ class BrowserViewModel(
     private val core: HoriCore,
 ) : AndroidViewModel(application) {
 
-    val sessions = GeckoSessionManager(application)
+    /** Snapshot of a recent site for the start page. */
+    data class RecentSite(val url: String, val title: String)
+
+    /** A quick-link tile on the start page. */
+    data class QuickLink(val url: String, val label: String, val glyph: String)
+
+    val sessions = GeckoSessionManager(application) { url, title ->
+        core.recordVisit(url, title)
+        refreshHomeData()
+    }
 
     /** Text currently being edited in the address bar (null = not editing). */
     var addressEditing by mutableStateOf<String?>(null)
@@ -33,17 +42,50 @@ class BrowserViewModel(
     var showSettings by mutableStateOf(false)
         private set
 
-    /** Editable copies of persisted settings, mirrored for the UI. */
+    var showAbout by mutableStateOf(false)
+        private set
+
+    var showHistory by mutableStateOf(false)
+        private set
+
+    // --- Settings state ---------------------------------------------------
+
     var homeUrlField by mutableStateOf(core.homeUrl())
     var searchEngineField by mutableStateOf(core.searchEngine())
-
-    /** Transient feedback shown in the settings screen. */
     var settingsMessage by mutableStateOf<String?>(null)
         private set
 
+    var themeMode by mutableStateOf(core.themeMode())
+        private set
+
+    val searchEngines: List<HoriCore.Engine> = core.searchEngines()
+
+    /** History entry count, refreshed when settings opens or data changes. */
+    var historyCount by mutableStateOf(0)
+        private set
+
+    // --- Start page state -------------------------------------------------
+
+    var recentSites by mutableStateOf<List<RecentSite>>(emptyList())
+        private set
+
+    /** Full history list shown in the History screen (newest first). */
+    var historyEntries by mutableStateOf<List<RecentSite>>(emptyList())
+        private set
+
+    val quickLinks: List<QuickLink> = listOf(
+        QuickLink("https://github.com/kd1wso", "GitHub", "GH"),
+        QuickLink("https://duckduckgo.com", "Search", "DD"),
+        QuickLink("https://www.wikipedia.org", "Wikipedia", "W"),
+        QuickLink("https://news.ycombinator.com", "HN", "HN"),
+        QuickLink("https://www.youtube.com", "YouTube", "YT"),
+        QuickLink("https://mozilla.org", "Mozilla", "M"),
+    )
+
     init {
-        // Start with one tab on the home page.
-        sessions.newTab(core.homeUrl())
+        // Start with one tab on Hori's own start page.
+        sessions.newTab(null)
+        refreshHomeData()
     }
 
     fun observeTab(id: Long): StateFlow<TabState>? = sessions.stateFor(id)
@@ -58,13 +100,24 @@ class BrowserViewModel(
         sessions.load(target)
     }
 
+    /** Runs a search from the start page's own search box. */
+    fun searchFromHome(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return
+        when (val kind = core.classifyInput(trimmed)) {
+            is HoriCore.AddressInput.Url -> sessions.load(kind.url)
+            is HoriCore.AddressInput.Search -> sessions.load(kind.url)
+        }
+    }
+
     fun openUrl(url: String) {
         sessions.load(url)
     }
 
-    /** Navigates the active tab to the configured home page. */
+    /** Shows Hori's start page in the active tab. */
     fun goHome() {
-        sessions.load(core.homeUrl())
+        sessions.showHome()
+        refreshHomeData()
     }
 
     fun startEditingAddress(current: String) {
@@ -81,8 +134,9 @@ class BrowserViewModel(
     }
 
     fun newTab() {
-        sessions.newTab(core.homeUrl())
+        sessions.newTab(null)
         showTabs = false
+        refreshHomeData()
     }
 
     fun selectTab(id: Long) {
@@ -98,6 +152,13 @@ class BrowserViewModel(
         showTabs = !showTabs
     }
 
+    private fun refreshHomeData() {
+        val all = core.recentHistory(limit = 200).map { RecentSite(it.url, it.title) }
+        historyEntries = all
+        recentSites = all.take(12)
+        historyCount = core.historyCount()
+    }
+
     // --- Settings ---------------------------------------------------------
 
     fun openSettings() {
@@ -105,6 +166,7 @@ class BrowserViewModel(
         homeUrlField = core.homeUrl()
         searchEngineField = core.searchEngine()
         settingsMessage = null
+        refreshHomeData()
         showSettings = true
     }
 
@@ -121,6 +183,14 @@ class BrowserViewModel(
     fun onSearchEngineFieldChange(value: String) {
         searchEngineField = value
         settingsMessage = null
+    }
+
+    /** Applies one of the built-in search engines. */
+    fun selectSearchEngine(engine: HoriCore.Engine) {
+        searchEngineField = engine.urlTemplate
+        runCatching { core.setSetting("search_engine", engine.urlTemplate) }
+            .onSuccess { settingsMessage = "Search engine: ${engine.name}" }
+            .onFailure { settingsMessage = "Could not save: ${it.message}" }
     }
 
     /** Validates and persists the home page. Returns true on success. */
@@ -172,6 +242,22 @@ class BrowserViewModel(
         }
     }
 
+    fun setThemeMode(mode: HoriCore.ThemeMode) {
+        themeMode = mode
+        runCatching { core.setThemeMode(mode) }
+            .onFailure { settingsMessage = "Could not save theme: ${it.message}" }
+    }
+
+    /** Clears Hori's browsing history (the recent-sites list). */
+    fun clearHistory() {
+        runCatching { core.clearHistory() }
+            .onSuccess {
+                refreshHomeData()
+                settingsMessage = "History cleared."
+            }
+            .onFailure { settingsMessage = "Could not clear history: ${it.message}" }
+    }
+
     /** Restores the built-in defaults for start page and search engine. */
     fun resetSettingsToDefaults() {
         runCatching {
@@ -182,6 +268,30 @@ class BrowserViewModel(
         searchEngineField = core.searchEngine()
         settingsMessage = "Defaults restored."
     }
+
+    // --- History screen ---------------------------------------------------
+
+    /** Opens the full history screen, refreshing entries first. */
+    fun openHistory() {
+        refreshHomeData()
+        showHistory = true
+    }
+
+    fun closeHistory() {
+        showHistory = false
+    }
+
+    // --- About ------------------------------------------------------------
+
+    fun openAbout() {
+        showAbout = true
+    }
+
+    fun closeAbout() {
+        showAbout = false
+    }
+
+    fun coreVersion(): String = core.version()
 
     companion object {
         // Mirrors core::settings defaults so "Reset" works even if storage had

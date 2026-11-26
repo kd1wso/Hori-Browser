@@ -13,6 +13,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.hori.browser.bridge.HoriCore
 
 private val LightColors = lightColorScheme(
     primary = Color(0xFF2D5BFF),
@@ -90,9 +91,17 @@ private val HoriTypography = Typography().let { base ->
 }
 
 @Composable
-fun HoriTheme(content: @Composable () -> Unit) {
+fun HoriTheme(
+    themeMode: HoriCore.ThemeMode = HoriCore.ThemeMode.SYSTEM,
+    content: @Composable () -> Unit,
+) {
+    val dark = when (themeMode) {
+        HoriCore.ThemeMode.LIGHT -> false
+        HoriCore.ThemeMode.DARK -> true
+        HoriCore.ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
     MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
+        colorScheme = if (dark) DarkColors else LightColors,
         shapes = HoriShapes,
         typography = HoriTypography,
         content = content,

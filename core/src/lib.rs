@@ -11,6 +11,7 @@ mod settings;
 mod storage;
 
 pub use navigation::{classify_input, search_url};
+pub use settings::SearchEngine;
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -44,6 +45,14 @@ pub struct Setting {
     pub value: String,
 }
 
+/// One visited site. `visited_at` is Unix epoch milliseconds.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct HistoryEntry {
+    pub url: String,
+    pub title: String,
+    pub visited_at: i64,
+}
+
 /// Entry point of Hori Core. Owns the SQLite database under `data_dir`.
 #[derive(uniffi::Object)]
 pub struct BrowserCore {
@@ -66,10 +75,21 @@ impl BrowserCore {
         }))
     }
 
+    /// Hori core version (shown in the About screen).
+    pub fn version(&self) -> String {
+        env!("CARGO_PKG_VERSION").to_string()
+    }
+
     /// Interprets address-bar input: a URL to load, or a search to run.
     pub fn classify_input(&self, input: String) -> Result<InputKind, HoriError> {
         let engine = self.search_engine()?;
         Ok(navigation::classify(&input, &engine))
+    }
+
+    /// Builds a search URL for `query` using the configured engine.
+    pub fn search_url(&self, query: String) -> Result<String, HoriError> {
+        let engine = self.search_engine()?;
+        Ok(navigation::search_url(&engine, &query))
     }
 
     pub fn get_setting(&self, key: String) -> Result<Option<String>, HoriError> {
@@ -99,4 +119,56 @@ impl BrowserCore {
             .get_setting("home_url".into())?
             .unwrap_or_else(|| settings::DEFAULT_HOME_URL.to_string()))
     }
+
+    /// Theme mode: "system", "light" or "dark". Defaults to "system".
+    pub fn theme_mode(&self) -> Result<String, HoriError> {
+        Ok(self
+            .get_setting("theme_mode".into())?
+            .unwrap_or_else(|| "system".to_string()))
+    }
+
+    /// The built-in search engines available in the Settings picker.
+    pub fn search_engines(&self) -> Vec<SearchEngine> {
+        settings::builtin_search_engines()
+    }
+
+    // --- History ---------------------------------------------------------
+
+    pub fn record_visit(&self, url: String, title: String) -> Result<(), HoriError> {
+        let db = self.db.lock().unwrap();
+        storage::record_visit(&db, &url, &title, now_millis()).map_err(Into::into)
+    }
+
+    pub fn recent_history(&self, limit: u32) -> Result<Vec<HistoryEntry>, HoriError> {
+        let db = self.db.lock().unwrap();
+        storage::recent_history(&db, limit).map_err(Into::into)
+    }
+
+    pub fn history_count(&self) -> Result<u32, HoriError> {
+        let db = self.db.lock().unwrap();
+        storage::history_count(&db).map_err(Into::into)
+    }
+
+    pub fn clear_history(&self) -> Result<(), HoriError> {
+        let db = self.db.lock().unwrap();
+        storage::clear_history(&db).map_err(Into::into)
+    }
+
+    /// Wipes all persisted user data in one call (history + non-sensitive
+    /// settings are kept; this exists for the "clear data" privacy action).
+    pub fn clear_browsing_data(&self) -> Result<(), HoriError> {
+        let db = self.db.lock().unwrap();
+        storage::clear_history(&db)?;
+        storage::set_setting(&db, "history_cleared_at", &now_millis().to_string())?;
+        Ok(())
+    }
+}
+
+/// Current Unix time in milliseconds.
+fn now_millis() -> i64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
 }

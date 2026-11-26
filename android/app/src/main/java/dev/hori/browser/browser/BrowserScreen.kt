@@ -23,11 +23,37 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import org.mozilla.geckoview.GeckoView
 
 /**
- * Main browser screen: address bar on top, web content below, toolbar at the
- * bottom. The single GeckoView re-attaches to whichever session is active.
+ * Root screen. Applies the theme (system/light/dark from settings) and switches
+ * between the browser, Settings, History and About.
  */
 @Composable
 fun BrowserScreen(vm: BrowserViewModel) {
+    // Theme follows the user's stored preference (system/light/dark).
+    HoriTheme(themeMode = vm.themeMode) {
+        when {
+            vm.showAbout -> AboutScreen(coreVersion = vm.coreVersion(), onBack = vm::closeAbout)
+            vm.showSettings -> SettingsScreen(
+                vm = vm,
+                onOpenHistory = vm::openHistory,
+                onOpenAbout = vm::openAbout,
+            )
+            vm.showHistory -> HistoryScreen(
+                entries = vm.historyEntries,
+                onOpen = { url ->
+                    vm.closeHistory()
+                    vm.openUrl(url)
+                },
+                onClearAll = vm::clearHistory,
+                onBack = vm::closeHistory,
+            )
+            else -> BrowserContent(vm)
+        }
+    }
+}
+
+/** The browser itself: address bar, web content or start page, toolbar, tabs. */
+@Composable
+private fun BrowserContent(vm: BrowserViewModel) {
     val tabs by vm.sessions.tabList.collectAsState()
     val activeId by vm.sessions.activeId.collectAsState()
     val revision by vm.sessions.activeRevision.collectAsState()
@@ -83,26 +109,38 @@ fun BrowserScreen(vm: BrowserViewModel) {
             }
 
             Box(modifier = Modifier.weight(1f)) {
-                // One GeckoView for the whole app; switching tabs rebinds it.
-                AndroidView(
-                    factory = { ctx ->
-                        GeckoView(ctx).apply {
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                            )
-                        }
-                    },
-                    update = { view ->
-                        // Reads `revision` so tab switches re-run this block.
-                        val rev = revision
-                        val session = vm.sessions.activeSession()
-                        if (rev >= 0 && session != null && view.session !== session) {
-                            view.setSession(session)
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
+                if (active.showHome) {
+                    // Hori's own start page replaces web content.
+                    HomeScreen(
+                        recentSites = vm.recentSites,
+                        quickLinks = vm.quickLinks,
+                        onSearch = vm::searchFromHome,
+                        onOpenUrl = vm::openUrl,
+                        onShowAllHistory = vm::openHistory,
+                    )
+                } else {
+                    // One GeckoView for the whole app; switching tabs
+                    // rebinds it to the active session.
+                    AndroidView(
+                        factory = { ctx ->
+                            GeckoView(ctx).apply {
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                )
+                            }
+                        },
+                        update = { view ->
+                            // Reads `revision` so tab switches re-run this.
+                            val rev = revision
+                            val session = vm.sessions.activeSession()
+                            if (rev >= 0 && session != null && view.session !== session) {
+                                view.setSession(session)
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
 
             if (!active.fullScreen) {
@@ -130,10 +168,6 @@ fun BrowserScreen(vm: BrowserViewModel) {
                 onNew = vm::newTab,
                 onDismiss = vm::toggleTabs,
             )
-        }
-
-        if (vm.showSettings) {
-            SettingsScreen(vm)
         }
     }
 }

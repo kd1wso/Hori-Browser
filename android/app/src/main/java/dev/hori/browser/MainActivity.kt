@@ -10,7 +10,6 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hori.browser.browser.BrowserScreen
 import dev.hori.browser.browser.BrowserViewModel
-import dev.hori.browser.browser.HoriTheme
 import dev.hori.browser.engine.OrientationLockController
 
 class MainActivity : ComponentActivity() {
@@ -35,9 +34,8 @@ class MainActivity : ComponentActivity() {
         vm.sessions.activity = this
 
         setContent {
-            HoriTheme {
-                BrowserScreen(vm)
-            }
+            // BrowserScreen applies HoriTheme itself (theme follows settings).
+            BrowserScreen(vm)
             // Handle a VIEW intent that started us cold.
             androidx.compose.runtime.LaunchedEffect(Unit) {
                 if (initialUrl != null) vm.openUrl(initialUrl)

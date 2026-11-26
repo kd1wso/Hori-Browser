@@ -23,13 +23,21 @@ data class TabState(
     val error: String? = null,
     /** Web content (e.g. a YouTube player) is in fullscreen mode. */
     val fullScreen: Boolean = false,
+    /** The tab is showing Hori's own start page instead of web content. */
+    val showHome: Boolean = false,
 )
 
 /**
  * Owns GeckoSessions, one per tab, on top of a shared GeckoRuntime.
  * Switching tabs = attaching another session to the single GeckoView.
+ *
+ * @param onVisit invoked on the UI thread after a page finishes loading, so the
+ *   host app can persist history through the Rust core.
  */
-class GeckoSessionManager(context: Context) {
+class GeckoSessionManager(
+    context: Context,
+    private val onVisit: (url: String, title: String) -> Unit = { _, _ -> },
+) {
 
     private val runtime = GeckoEngine.runtime(context)
 
@@ -66,12 +74,17 @@ class GeckoSessionManager(context: Context) {
 
     fun stateFor(id: Long): StateFlow<TabState>? = tabs[id]?.state
 
-    /** Creates a tab, makes it active, optionally loads [url]. */
+    /**
+     * Creates a tab, makes it active, and optionally loads [url].
+     * A null [url] opens Hori's start page.
+     */
     fun newTab(url: String?): Long {
         val id = nextId++
         val session = GeckoSession()
         session.open(runtime)
-        val state = MutableStateFlow(TabState(id = id, url = url ?: ""))
+        val state = MutableStateFlow(
+            TabState(id = id, url = url ?: "", showHome = url == null),
+        )
         val tab = Tab(session, state)
         attachDelegates(tab)
         tabs[id] = tab
@@ -80,6 +93,23 @@ class GeckoSessionManager(context: Context) {
         publishList()
         if (url != null) session.loadUri(url)
         return id
+    }
+
+    /** Shows Hori's start page in the active tab. */
+    fun showHome() {
+        val id = _activeId.value
+        val tab = tabs[id] ?: return
+        tab.session.stop()
+        update(id) {
+            it.copy(
+                showHome = true,
+                url = "",
+                title = "",
+                loading = false,
+                progress = 0,
+                error = null,
+            )
+        }
     }
 
     fun selectTab(id: Long) {
@@ -112,6 +142,8 @@ class GeckoSessionManager(context: Context) {
     }
 
     fun load(url: String) {
+        val id = _activeId.value
+        update(id) { it.copy(showHome = false) }
         activeSession()?.loadUri(url)
     }
 
@@ -155,11 +187,18 @@ class GeckoSessionManager(context: Context) {
             }
 
             override fun onPageStart(session: GeckoSession, url: String) {
-                update(id) { it.copy(url = url, loading = true, error = null) }
+                // Any real navigation leaves the start page.
+                update(id) { it.copy(url = url, loading = true, error = null, showHome = false) }
             }
 
             override fun onPageStop(session: GeckoSession, success: Boolean) {
                 update(id) { it.copy(loading = false, progress = 100) }
+                if (success) {
+                    val state = tab.state.value
+                    if (state.url.startsWith("http")) {
+                        onVisit(state.url, state.title)
+                    }
+                }
             }
         }
 
