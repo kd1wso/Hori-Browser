@@ -44,6 +44,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -65,6 +67,8 @@ fun SettingsScreen(
     onOpenAbout: () -> Unit,
 ) {
     BackHandler(enabled = true) { vm.closeSettings() }
+
+    val downloads by vm.downloads.collectAsState()
 
     Scaffold(
         topBar = {
@@ -199,10 +203,10 @@ fun SettingsScreen(
                     NavigationRow(
                         icon = Icons.Filled.Download,
                         title = "Загрузки",
-                        subtitle = if (vm.downloads.isEmpty()) {
+                        subtitle = if (downloads.isEmpty()) {
                             "Нет загрузок"
                         } else {
-                            "В списке: ${vm.downloads.size}"
+                            "В списке: ${downloads.size}"
                         },
                         onClick = onOpenDownloads,
                     )
