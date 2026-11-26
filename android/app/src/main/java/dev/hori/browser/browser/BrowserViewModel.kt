@@ -51,6 +51,11 @@ class BrowserViewModel(
         sessions.load(url)
     }
 
+    /** Navigates the active tab to the configured home page. */
+    fun goHome() {
+        sessions.load(core.homeUrl())
+    }
+
     fun startEditingAddress(current: String) {
         addressEditing = current
     }

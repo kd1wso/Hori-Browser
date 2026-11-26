@@ -1,14 +1,14 @@
 package dev.hori.browser.browser
 
 import android.view.ViewGroup
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -17,7 +17,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.activity.compose.BackHandler
 import dev.hori.browser.engine.TabState
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.mozilla.geckoview.GeckoView
@@ -66,12 +65,18 @@ fun BrowserScreen(vm: BrowserViewModel) {
                     onSubmit = vm::submitAddress,
                     onEditChange = { vm.addressEditing = it },
                     onClearEditing = vm::clearEditingAddress,
+                    onHome = vm::goHome,
                 )
 
+                // Thinner, primary-colored page-load bar.
                 if (active.loading) {
                     LinearProgressIndicator(
                         progress = { active.progress / 100f },
-                        modifier = Modifier.fillMaxWidth().height(2.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp),
                     )
                 }
             }
@@ -103,10 +108,12 @@ fun BrowserScreen(vm: BrowserViewModel) {
                 BottomToolbar(
                     canGoBack = active.canGoBack,
                     canGoForward = active.canGoForward,
+                    loading = active.loading,
                     tabCount = tabs.size,
                     onBack = vm.sessions::goBack,
                     onForward = vm.sessions::goForward,
                     onReload = vm.sessions::reload,
+                    onStop = vm.sessions::stop,
                     onTabs = vm::toggleTabs,
                 )
             }

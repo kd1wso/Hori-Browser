@@ -119,6 +119,10 @@ class GeckoSessionManager(context: Context) {
         activeSession()?.reload(GeckoSession.LOAD_FLAGS_BYPASS_CACHE)
     }
 
+    fun stop() {
+        activeSession()?.stop()
+    }
+
     fun goBack() {
         activeSession()?.goBack(false)
     }
